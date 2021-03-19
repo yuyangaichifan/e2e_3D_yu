@@ -206,6 +206,59 @@ def get_single_image_crop(image, bbox, scale=1.3):
 
     return crop_image
 
+def convert_bbox_resize(bbox_in, ratio, top, left):
+    bbox_out = bbox_in *  ratio
+    bbox_out[0] += left
+    bbox_out[1] += top
+    return bbox_out
+
+def convert_image_resize(image, bbox_orig, W, H):
+    h, w = image.shape[0:2]
+    m = max(w, h)
+    ratio = W / m
+    new_w, new_h = int(ratio * w), int(ratio * h)
+    assert new_w > 0 and new_h > 0
+    resized = cv2.resize(image, (new_w, new_h))
+    top = (H - new_h) // 2
+    bottom = (H - new_h) // 2
+    if top + bottom + new_h < H:
+        bottom += 1
+
+    left = (W - new_w) // 2
+    right = (W - new_w) // 2
+    if left + right + new_w < W:
+        right += 1
+
+    pad_image = cv2.copyMakeBorder(resized, top, bottom, left, right,
+                                   cv2.BORDER_CONSTANT)
+    bbox_orig_re = convert_bbox_resize(bbox_orig, ratio, top, left)
+    return pad_image, bbox_orig_re
+
+def get_single_image_full(image_name, bbox_orig, vis=False):
+
+    image = cv2.cvtColor(cv2.imread(image_name), cv2.COLOR_BGR2RGB)
+
+    pad_image_yolo, bbox_orig_yolo = convert_image_resize(image, bbox_orig, 416, 416)
+    pad_image_big, bbox_orig_big = convert_image_resize(image, bbox_orig, 2000, 2000)
+
+    # if vis == True:
+    #     import matplotlib.pyplot as plt
+    #     import matplotlib.patches as patches
+    #     fig, ax = plt.subplots()
+    #     ax.imshow(pad_image)
+    #     rect = patches.Rectangle((bbox_orig_re[0] - bbox_orig_re[2] / 2, bbox_orig_re[1] - bbox_orig_re[3] / 2),
+    #                              bbox_orig_re[2], bbox_orig_re[3], linewidth=2, edgecolor='r', facecolor='none')
+    #     ax.add_patch(rect)
+    #     rect = patches.Rectangle((bbox_re[0] - bbox_re[2] / 2, bbox_re[1] - bbox_re[3] / 2),
+    #                              bbox_re[2], bbox_re[3], linewidth=2, edgecolor='g', facecolor='none')
+    #     ax.add_patch(rect)
+    #     plt.show()
+    #     print('vis')
+
+    pad_image_yolo = convert_cvimg_to_tensor(pad_image_yolo)
+    pad_image_big =  convert_cvimg_to_tensor(pad_image_big)
+    return pad_image_yolo, pad_image_big, bbox_orig_yolo, bbox_orig_big
+
 def get_single_image_crop_demo(image, bbox, kp_2d, scale=1.2, crop_size=224):
     if isinstance(image, str):
         if os.path.isfile(image):
@@ -298,6 +351,27 @@ def get_bbox_from_kp2d(kp_2d):
     bbox = np.array([c_x, c_y, w, h])  # shape = (4,N)
     return bbox
 
+def get_bbox_from_kp2d_orig(kp_2d):
+    # get bbox
+    if len(kp_2d.shape) > 2:
+        ul = np.array([kp_2d[:, :, 0].min(axis=1), kp_2d[:, :, 1].min(axis=1)])  # upper left
+        lr = np.array([kp_2d[:, :, 0].max(axis=1), kp_2d[:, :, 1].max(axis=1)])  # lower right
+    else:
+        ul = np.array([kp_2d[:, 0].min(), kp_2d[:, 1].min()])  # upper left
+        lr = np.array([kp_2d[:, 0].max(), kp_2d[:, 1].max()])  # lower right
+
+    # ul[1] -= (lr[1] - ul[1]) * 0.10  # prevent cutting the head
+    w = lr[0] - ul[0]
+    h = lr[1] - ul[1]
+    c_x, c_y = ul[0] + w / 2, ul[1] + h / 2
+    # to keep the aspect ratio
+    # w = h = np.where(w / h > 1, w, h)
+
+    h *= 1.1
+    w = h*0.5
+    bbox = np.array([c_x, c_y, w, h])  # shape = (4,N)
+    return bbox
+
 def normalize_2d_kp(kp_2d, crop_size=224, inv=False):
     # Normalize keypoints between -1, 1
     if not inv:
@@ -315,7 +389,7 @@ def get_default_transform():
     )
     transform = transforms.Compose([
         transforms.ToTensor(),
-        normalize,
+        # normalize,
     ])
     return transform
 

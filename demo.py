@@ -29,12 +29,13 @@ from tqdm import tqdm
 from multi_person_tracker import MPT
 from torch.utils.data import DataLoader
 
-from lib.models.vibe import VIBE_Demo
+from lib.models.vibe import VIBE_Demo, VIBE_w_HMR
 from lib.utils.renderer import Renderer
 from lib.dataset.inference import Inference
 from lib.utils.smooth_pose import smooth_pose
 from lib.data_utils.kp_utils import convert_kps
 from lib.utils.pose_tracker import run_posetracker
+from lib.models.e2e_model import e2e_VIBE
 
 from lib.utils.demo_utils import (
     download_youtube_clip,
@@ -110,6 +111,8 @@ def main(args):
 
     # ========= Load pretrained weights ========= #
     pretrained_file = download_ckpt(use_3dpw=False)
+    # pretrained_file = '/home/yu/Documents/VIBE/results/vibe_tests/20201219best/model_best.pth.tar'
+    # J_regressor = torch.from_numpy(np.load('/home/yu/Documents/VIBE/data/vibe_data/J_regressor_h36m.npy')).float()
     ckpt = torch.load(pretrained_file)
     print(f'Performance of pretrained model on 3DPW: {ckpt["performance"]}')
     ckpt = ckpt['gen_state_dict']
@@ -159,6 +162,7 @@ def main(args):
 
                 batch_size, seqlen = batch.shape[:2]
                 output = model(batch)[-1]
+                # output = model(batch, J_regressor=J_regressor)[-1]
 
                 pred_cam.append(output['theta'][:, :, :3].reshape(batch_size * seqlen, -1))
                 pred_verts.append(output['verts'].reshape(batch_size * seqlen, -1, 3))

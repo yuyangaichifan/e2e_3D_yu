@@ -72,9 +72,11 @@ class Evaluator():
 
             # <=============
             with torch.no_grad():
-                inp = target['features']
-
-                preds = self.model(inp, J_regressor=J_regressor)
+                #inp = target['features']
+                imgIn = target['video']
+                # imgIn = imgIn.to('cuda:0')
+                preds = self.model(imgIn, J_regressor=J_regressor)
+                #preds = self.model(inp, J_regressor=J_regressor)
 
                 # convert to 14 keypoint format for evaluation
                 # if self.use_spin:

@@ -59,6 +59,7 @@ class MotionDiscriminator(nn.Module):
         """
         sequence: of shape [batch_size, seq_len, input_size]
         """
+        self.gru.flatten_parameters()
         batchsize, seqlen, input_size = sequence.shape
         sequence = torch.transpose(sequence, 0, 1)
 

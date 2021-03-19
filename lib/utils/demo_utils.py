@@ -179,6 +179,17 @@ def trim_videos(filename, start_time, end_time, output_filename):
     # command = ' '.join(command)
     subprocess.call(command)
 
+def img_folder_Info(img_folder):
+    img0 = os.listdir(img_folder)[0]
+
+    print(f'Images saved to \"{img_folder}\"')
+
+    img_shape = cv2.imread(os.path.join(img_folder, img0)).shape
+
+
+    return len(os.listdir(img_folder)), img_shape
+
+
 
 def video_to_images(vid_file, img_folder=None, return_info=False):
     if img_folder is None:

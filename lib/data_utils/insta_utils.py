@@ -24,6 +24,7 @@ from lib.models import spin
 from lib.utils.vis import draw_skeleton
 from lib.core.config import VIBE_DB_DIR
 from lib.data_utils.feature_extractor import extract_features
+import time
 
 class ImageCoder(object):
     """
@@ -252,13 +253,17 @@ def read_single_record(fname):
         'frame_id': [],
         'joints2D': [], # should contain openpose keypoints only
         'features': [],
+        'video': [],
+        'bbox': [],
     }
 
     model = spin.get_pretrained_hmr()
 
     sess = tf.Session()
-
+    t3 = time.time()
     for vid_idx, serialized_ex in tqdm(enumerate(tf.python_io.tf_record_iterator(fname))):
+        #
+        # print('Yang ge Time', t1 - t3,  '\n')
         example = tf.train.Example()
         example.ParseFromString(serialized_ex)
 
@@ -287,7 +292,7 @@ def read_single_record(fname):
         visibles = example.features.feature[
             'image/visibilities'].int64_list.value
         visibles = np.array(visibles).reshape(-1, 1, 14)
-
+        t1 = time.time()
         video = []
         kp_2d = []
         for i in range(N):
@@ -308,7 +313,7 @@ def read_single_record(fname):
                 kp = np.vstack((kp, vis))
 
             kp_2d.append(np.expand_dims(kp.T, axis=0))
-
+        t2 = time.time()
         video = np.concatenate(video, axis=0)
         kp_2d = np.concatenate(kp_2d, axis=0)
 
@@ -322,9 +327,13 @@ def read_single_record(fname):
 
         features = extract_features(model, video, bbox=None, kp_2d=kp_2d, dataset='insta', debug=False)
         dataset['features'].append(features)
-
+        dataset['video'].append(video)
+        bbox_in = -1 * np.ones((video.shape[0], 4))
+        dataset['bbox'].append(bbox_in)
         print(features.shape)
         assert features.shape[0] == N
+        t3 = time.time()
+        print('Yang ge Time', t2 - t1, t3 - t2, '\n')
 
     for k in dataset.keys():
         dataset[k] = np.concatenate(dataset[k])
@@ -332,6 +341,7 @@ def read_single_record(fname):
     for k,v in dataset.items():
         print(k, len(v))
 
+    #print('Yang ge Time', t2 - t1, t3 - t2, '\n')
     return dataset
 
 
@@ -349,6 +359,8 @@ def concatenate_annotations():
         'frame_id': [],
         'joints2D': [],
         'features': [],
+        'video': [],
+        'bbox': [],
     }
 
     for i in range(273):

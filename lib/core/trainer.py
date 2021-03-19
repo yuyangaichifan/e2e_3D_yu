@@ -168,17 +168,29 @@ class Trainer():
             move_dict_to_device(real_motion_samples, self.device)
 
             # <======= Feedforward generator and discriminator
-            if target_2d and target_3d:
-                inp = torch.cat((target_2d['features'], target_3d['features']), dim=0).to(self.device)
-            elif target_3d:
-                inp = target_3d['features'].to(self.device)
-            else:
-                inp = target_2d['features'].to(self.device)
+            # if target_2d and target_3d:
+            #     inp = torch.cat((target_2d['features'], target_3d['features']), dim=0).to(self.device)
+            # elif target_3d:
+            #     inp = target_3d['features'].to(self.device)
+            # else:
+            #     inp = target_2d['features'].to(self.device)
 
+            imgIn = torch.cat((target_2d['video_yolo'], target_3d['video_yolo']), dim=0).to(self.device)
+            bbxGt = torch.cat((target_2d['bbox_orig_yolo'], target_3d['bbox_orig_yolo']), dim=0).to(self.device)
+            # imgIn = imgIn.to('cuda:0')
             timer['data'] = time.time() - start
             start = time.time()
 
-            preds = self.generator(inp)
+            #preds = self.generator(inp)
+            preds = self.generator(imgIn, bbxGt)
+            # out1, out2, out3, out4, out5  = self.generator(imgIn)
+            # preds = [{
+            #     'theta'  : out1,
+            #     'verts'  : out2,
+            #     'kp_2d'  : out3,
+            #     'kp_3d'  : out4,
+            #     'rotmat' : out5
+            # }]
 
             timer['forward'] = time.time() - start
             start = time.time()
@@ -210,7 +222,7 @@ class Trainer():
             # <======= Log training info
             total_loss = gen_loss + motion_dis_loss
 
-            losses.update(total_loss.item(), inp.size(0))
+            losses.update(total_loss.item(), imgIn.size(0))
 
             timer['backward'] = time.time() - start
             timer['batch'] = timer['data'] + timer['forward'] + timer['loss'] + timer['backward']
@@ -227,15 +239,16 @@ class Trainer():
                 summary_string += f' | {k}: {v:.2f}'
 
             self.writer.add_scalar('train_loss/loss', total_loss.item(), global_step=self.train_global_step)
+            # self.writer.add_graph(self.generator, imgIn)
 
-            if self.debug:
-                print('==== Visualize ====')
-                from lib.utils.vis import batch_visualize_vid_preds
-                video = target_3d['video']
-                dataset = 'spin'
-                vid_tensor = batch_visualize_vid_preds(video, preds[-1], target_3d.copy(),
-                                                       vis_hmr=False, dataset=dataset)
-                self.writer.add_video('train-video', vid_tensor, global_step=self.train_global_step, fps=10)
+            #if self.debug:
+            # print('==== Visualize ====')
+            # from lib.utils.vis import batch_visualize_vid_preds
+            # video = target_3d['video']
+            # dataset = 'spin'
+            # vid_tensor = batch_visualize_vid_preds(video, preds[-1], target_3d.copy(),
+            #                                        vis_hmr=False, dataset=dataset)
+            # self.writer.add_video('train-video', vid_tensor, global_step=self.train_global_step, fps=10)
 
             self.train_global_step += 1
             bar.suffix = summary_string
@@ -270,10 +283,11 @@ class Trainer():
 
             # <=============
             with torch.no_grad():
-                inp = target['features']
-
-                preds = self.generator(inp, J_regressor=J_regressor)
-
+                #inp = target['features']
+                imgIn = target['video']
+                # imgIn = imgIn.to('cuda:0')
+                preds = self.generator(imgIn, J_regressor=J_regressor)
+                # preds = self.generator(imgIn)
                 # convert to 14 keypoint format for evaluation
                 n_kp = preds[-1]['kp_3d'].shape[-2]
                 pred_j3d = preds[-1]['kp_3d'].view(-1, n_kp, 3).cpu().numpy()
@@ -290,7 +304,8 @@ class Trainer():
             # =============>
 
             # <============= DEBUG
-            if self.debug and self.valid_global_step % self.debug_freq == 0:
+            # if self.debug and self.valid_global_step % self.debug_freq == 0:
+            if self.valid_global_step % self.debug_freq == 0:
                 from lib.utils.vis import batch_visualize_vid_preds
                 video = target['video']
                 dataset = 'common'
@@ -320,7 +335,10 @@ class Trainer():
             performance = self.evaluate()
 
             if self.lr_scheduler is not None:
-                self.lr_scheduler.step(performance)
+                ## the original LR
+                # self.lr_scheduler.step(performance)
+                ## yu's LR
+                self.lr_scheduler.step(epoch)
 
             if self.motion_lr_scheduler is not None:
                 self.motion_lr_scheduler.step(performance)
@@ -338,7 +356,7 @@ class Trainer():
 
             self.save_model(performance, epoch)
 
-            if performance > 80.0:
+            if performance > 200.0:
                 exit(f'MPJPE error is {performance}, higher than 80.0. Exiting!...')
 
         self.writer.close()

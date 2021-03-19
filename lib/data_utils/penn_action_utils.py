@@ -65,6 +65,7 @@ def read_data(folder):
         'img_name' : [],
         'joints2D': [],
         'bbox': [],
+        'bbox_orig': [],
         'vid_name': [],
         'features': [],
     }
@@ -91,21 +92,40 @@ def read_data(folder):
         kp_2d = n_kp_2d
 
         bbox = np.zeros((vid_dict['nframes'], 4))
+        bbox_orig = np.zeros((vid_dict['nframes'], 4))
 
         for fr_id, fr in enumerate(kp_2d):
             u, d, l, r = calc_kpt_bound(fr)
             center = np.array([(l + r) * 0.5, (u + d) * 0.5], dtype=np.float32)
             c_x, c_y = center[0], center[1]
             w, h = r - l, d - u
+            h *= 1.1
+            bbox_orig[fr_id, :] = np.array([c_x, c_y, h*0.5, h])
+
             w = h = np.where(w / h > 1, w, h)
 
             bbox[fr_id,:] = np.array([c_x, c_y, w, h])
+            # if True:
+            #     tmpimgname = imgs[fr_id]
+            #     import matplotlib.pyplot as plt
+            #     import matplotlib.patches as patches
+            #     fig, ax = plt.subplots()
+            #     tmpimg = plt.imread(tmpimgname)
+            #     ax.imshow(tmpimg)
+            #     rect = patches.Rectangle((bbox_orig[fr_id, 0] - bbox_orig[fr_id, 2] / 2, bbox_orig[fr_id, 1] - bbox_orig[fr_id, 3] / 2),
+            #                              bbox_orig[fr_id, 2], bbox_orig[fr_id, 3], linewidth=2, edgecolor='r', facecolor='none')
+            #     ax.add_patch(rect)
+            #     rect = patches.Rectangle((bbox[fr_id, 0] - bbox[fr_id, 2] / 2, bbox[fr_id, 1] - bbox[fr_id, 3] / 2),
+            #                              bbox[fr_id, 2], bbox[fr_id, 3], linewidth=2, edgecolor='g', facecolor='none')
+            #     ax.add_patch(rect)
+            #     plt.show()
+            #     print('vis')
 
         dataset['vid_name'].append(np.array([f'{fname}']* vid_dict['nframes']))
         dataset['img_name'].append(np.array(imgs))
         dataset['joints2D'].append(kp_2d)
         dataset['bbox'].append(bbox)
-
+        dataset['bbox_orig'].append(bbox_orig)
         features = extract_features(model, np.array(imgs) , bbox, dataset='pennaction', debug=False)
         dataset['features'].append(features)
 

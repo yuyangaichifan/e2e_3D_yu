@@ -24,7 +24,7 @@ AMASS_DIR = 'data/amass'
 INSTA_DIR = 'data/insta_variety'
 MPII3D_DIR = 'data/mpi_inf_3dhp'
 THREEDPW_DIR = 'data/3dpw'
-PENNACTION_DIR = 'data/penn_action'
+PENNACTION_DIR = 'data/Penn_Action'
 POSETRACK_DIR = 'data/posetrack'
 VIBE_DATA_DIR = 'data/vibe_data'
 
@@ -103,6 +103,16 @@ cfg.MODEL.TGRU.RESIDUAL = False
 cfg.MODEL.TGRU.HIDDEN_SIZE = 2048
 cfg.MODEL.TGRU.BIDIRECTIONAL = False
 
+# Yolo model hyperparams
+cfg.YOLO = CN()
+cfg.YOLO.PRETRAINED_MODEL = ''
+cfg.YOLO.IMG_SIZE = 608
+cfg.YOLO.MODEL_DEF = ''
+cfg.YOLO.CLASS_PATH = ''
+
+
+cfg.TRACKER = CN()
+cfg.TRACKER.TRACKER_BATCH_SIZE = 16
 
 def get_cfg_defaults():
     """Get a yacs CfgNode object with default values for my_project."""

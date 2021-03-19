@@ -26,7 +26,7 @@ from torch.utils.data import Dataset
 
 from lib.core.config import VIBE_DB_DIR
 from lib.data_utils.kp_utils import convert_kps
-from lib.data_utils.img_utils import normalize_2d_kp, transfrom_keypoints, split_into_chunks
+from lib.data_utils.img_utils import normalize_2d_kp, transfrom_keypoints, split_into_chunks, get_single_image_full
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,8 @@ class Dataset2D(Dataset):
         kp_2d_tensor = np.ones((self.seqlen, 49, 3), dtype=np.float16)
 
         bbox  = self.db['bbox'][start_index:end_index+1]
-
+        bbox_orig = self.db['bbox_orig'][start_index:end_index + 1]
+        bbox_orig[:, 2] =  bbox[:, 2] *0.5
         input = torch.from_numpy(self.db['features'][start_index:end_index+1]).float()
 
 
@@ -101,36 +102,49 @@ class Dataset2D(Dataset):
             # 'instance_id': instance_id,
         }
 
-        if self.debug:
-            from lib.data_utils.img_utils import get_single_image_crop
+        # if self.debug:
+        from lib.data_utils.img_utils import get_single_image_crop
 
-            vid_name = self.db['vid_name'][start_index]
+        vid_name = self.db['vid_name'][start_index]
 
-            if self.dataset_name == 'pennaction':
-                vid_folder = "frames"
-                vid_name = vid_name.split('/')[-1].split('.')[0]
-                img_id = "img_name"
-            elif self.dataset_name == 'posetrack':
-                vid_folder = osp.join('images', vid_name.split('/')[-2])
-                vid_name = vid_name.split('/')[-1].split('.')[0]
-                img_id = "img_name"
+        if self.dataset_name == 'pennaction':
+            vid_folder = "frames"
+            vid_name = vid_name.split('/')[-1].split('.')[0]
+            img_id = "img_name"
+        elif self.dataset_name == 'posetrack':
+            vid_folder = osp.join('images', vid_name.split('/')[-2])
+            vid_name = vid_name.split('/')[-1].split('.')[0]
+            img_id = "img_name"
+        else:
+            vid_name = '_'.join(vid_name.split('_')[:-1])
+            vid_folder = 'imageFiles'
+            img_id= 'frame_id'
+        f = osp.join(self.folder, vid_folder, vid_name)
+        video_file_list = [osp.join(f, x) for x in sorted(os.listdir(f)) if x.endswith('.jpg')]
+        frame_idxs = self.db[img_id][start_index:end_index + 1]
+        if self.dataset_name == 'pennaction' or self.dataset_name == 'posetrack':
+            video_names = frame_idxs
+        else:
+            video_names = [video_file_list[i] for i in frame_idxs]
+
+        count = 0
+        for image_name, tmp_bbox_orig in zip(video_names, bbox_orig):
+            image_yolo, image_big, bbox_orig_yolo, bbox_orig_big = get_single_image_full(image_name, tmp_bbox_orig)
+            if count == 0:
+                bbox_orig_big_all = [bbox_orig_big]
+                bbox_orig_yolo_all = [bbox_orig_yolo]
+                video_big = image_big.unsqueeze(0)
+                video_yolo = image_yolo.unsqueeze(0)
             else:
-                vid_name = '_'.join(vid_name.split('_')[:-1])
-                vid_folder = 'imageFiles'
-                img_id= 'frame_id'
-            f = osp.join(self.folder, vid_folder, vid_name)
-            video_file_list = [osp.join(f, x) for x in sorted(os.listdir(f)) if x.endswith('.jpg')]
-            frame_idxs = self.db[img_id][start_index:end_index + 1]
-            if self.dataset_name == 'pennaction' or self.dataset_name == 'posetrack':
-                video = frame_idxs
-            else:
-                video = [video_file_list[i] for i in frame_idxs]
-
-            video = torch.cat(
-                [get_single_image_crop(image, bbox).unsqueeze(0) for image, bbox in zip(video, bbox)], dim=0
-            )
-
-            target['video'] = video
+                bbox_orig_big_all = np.append(bbox_orig_yolo_all, [bbox_orig_big], axis=0)
+                bbox_orig_yolo_all = np.append(bbox_orig_yolo_all, [bbox_orig_yolo], axis=0)
+                video_big = torch.cat([video_big, image_big.unsqueeze(0)])
+                video_yolo = torch.cat([video_yolo, image_yolo.unsqueeze(0)])
+            count += 1
+        target['video_big'] = video_big
+        target['video_yolo'] = video_yolo
+        target['bbox_orig_yolo'] = bbox_orig_yolo_all
+        target['bbox_orig_big'] = bbox_orig_big_all
 
         return target
 

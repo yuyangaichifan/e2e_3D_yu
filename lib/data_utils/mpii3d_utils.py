@@ -14,7 +14,7 @@ from lib.models import spin
 from lib.core.config import VIBE_DB_DIR
 from lib.utils.utils import tqdm_enumerate
 from lib.data_utils.kp_utils import convert_kps
-from lib.data_utils.img_utils import get_bbox_from_kp2d
+from lib.data_utils.img_utils import get_bbox_from_kp2d, get_bbox_from_kp2d_orig
 from lib.data_utils.feature_extractor import extract_features
 
 
@@ -83,6 +83,7 @@ def read_data_train(dataset_path, debug=False):
         'joints3D': [],
         'joints2D': [],
         'bbox': [],
+        'bbox_orig': [],
         'img_name': [],
         'features': [],
     }
@@ -155,6 +156,23 @@ def read_data_train(dataset_path, debug=False):
                     joints_3d = convert_kps(joints_3d_raw, "mpii3d", "spin").reshape((-1,3))
 
                     bbox = get_bbox_from_kp2d(joints_2d[~np.all(joints_2d == 0, axis=1)]).reshape(4)
+                    bbox_orig = get_bbox_from_kp2d_orig(joints_2d[~np.all(joints_2d == 0, axis=1)]).reshape(4)
+
+                    # if True:
+                    #     tmpimgname = img_name
+                    #     import matplotlib.pyplot as plt
+                    #     import matplotlib.patches as patches
+                    #     fig, ax = plt.subplots()
+                    #     tmpimg = plt.imread(tmpimgname)
+                    #     ax.imshow(tmpimg)
+                    #     rect = patches.Rectangle((bbox_orig[0] - bbox_orig[2] / 2, bbox_orig[1] - bbox_orig[3] / 2),
+                    #                              bbox_orig[2], bbox_orig[3], linewidth=2, edgecolor='r', facecolor='none')
+                    #     ax.add_patch(rect)
+                    #     rect = patches.Rectangle((bbox[0] - bbox[2] / 2, bbox[1] - bbox[3] / 2),
+                    #                              bbox[2], bbox[3], linewidth=2, edgecolor='g', facecolor='none')
+                    #     ax.add_patch(rect)
+                    #     plt.show()
+                    #     print('vis')
 
                     joints_3d = joints_3d - joints_3d[39]  # 4 is the root
 
@@ -173,6 +191,7 @@ def read_data_train(dataset_path, debug=False):
                     dataset['joints2D'].append(joints_2d)
                     dataset['joints3D'].append(joints_3d)
                     dataset['bbox'].append(bbox)
+                    dataset['bbox_orig'].append(bbox_orig)
                     vid_segments.append(vid_uniq_id)
                     vid_used_frames.append(img_i)
                     vid_used_joints.append(joints_2d)
@@ -206,6 +225,7 @@ def read_test_data(dataset_path):
         'joints3D': [],
         'joints2D': [],
         'bbox': [],
+        'bbox_orig': [],
         'img_name': [],
         'features': [],
         "valid_i": []
@@ -275,7 +295,7 @@ def read_test_data(dataset_path):
             joints_3d = joints_3d - joints_3d[39] # substract pelvis zero is the root for test
 
             bbox = get_bbox_from_kp2d(joints_2d[~np.all(joints_2d == 0, axis=1)]).reshape(4)
-
+            bbox_orig = get_bbox_from_kp2d_orig(joints_2d[~np.all(joints_2d == 0, axis=1)]).reshape(4)
 
             # check that all joints are visible
             img_file = os.path.join(dataset_path, img_i)
@@ -290,13 +310,28 @@ def read_test_data(dataset_path):
                               str(int(dataset['vid_name'][-1].split("_")[-1][3:]) + 1)
                 continue
 
-
+            # if True:
+            #     tmpimgname = img_file
+            #     import matplotlib.pyplot as plt
+            #     import matplotlib.patches as patches
+            #     fig, ax = plt.subplots()
+            #     tmpimg = plt.imread(tmpimgname)
+            #     ax.imshow(tmpimg)
+            #     rect = patches.Rectangle((bbox_orig[0] - bbox_orig[2] / 2, bbox_orig[1] - bbox_orig[3] / 2),
+            #                              bbox_orig[2], bbox_orig[3], linewidth=2, edgecolor='r', facecolor='none')
+            #     ax.add_patch(rect)
+            #     rect = patches.Rectangle((bbox[0] - bbox[2] / 2, bbox[1] - bbox[3] / 2),
+            #                              bbox[2], bbox[3], linewidth=2, edgecolor='g', facecolor='none')
+            #     ax.add_patch(rect)
+            #     plt.show()
+            #     print('vis')
             dataset['vid_name'].append(vid_uniq_id)
             dataset['frame_id'].append(img_file.split("/")[-1].split(".")[0])
             dataset['img_name'].append(img_file)
             dataset['joints2D'].append(joints_2d)
             dataset['joints3D'].append(joints_3d)
             dataset['bbox'].append(bbox)
+            dataset['bbox_orig'].append(bbox_orig)
             dataset['valid_i'].append(valid_i)
 
             vid_segments.append(vid_uniq_id)

@@ -23,14 +23,17 @@ import random
 import numpy as np
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
+import wandb
+
 
 from lib.core.loss import VIBELoss
 from lib.core.trainer import Trainer
 from lib.core.config import parse_args
 from lib.utils.utils import prepare_output_dir
-from lib.models import VIBE, MotionDiscriminator
+from lib.models import VIBE, MotionDiscriminator, VIBE_w_HMR
 from lib.dataset.loaders import get_data_loaders
 from lib.utils.utils import create_logger, get_optimizer
+from lib.models.e2e_model import e2e_VIBE, Det_VIBE
 
 
 def main(cfg):
@@ -69,16 +72,19 @@ def main(cfg):
     )
 
     # ========= Initialize networks, optimizers and lr_schedulers ========= #
-    generator = VIBE(
-        n_layers=cfg.MODEL.TGRU.NUM_LAYERS,
-        batch_size=cfg.TRAIN.BATCH_SIZE,
-        seqlen=cfg.DATASET.SEQLEN,
-        hidden_size=cfg.MODEL.TGRU.HIDDEN_SIZE,
-        pretrained=cfg.TRAIN.PRETRAINED_REGRESSOR,
-        add_linear=cfg.MODEL.TGRU.ADD_LINEAR,
-        bidirectional=cfg.MODEL.TGRU.BIDIRECTIONAL,
-        use_residual=cfg.MODEL.TGRU.RESIDUAL,
-    ).to(cfg.DEVICE)
+    # generator = e2e_VIBE(
+    #     n_layers=cfg.MODEL.TGRU.NUM_LAYERS,
+    #     batch_size=cfg.TRAIN.BATCH_SIZE,
+    #     seqlen=cfg.DATASET.SEQLEN,
+    #     hidden_size=cfg.MODEL.TGRU.HIDDEN_SIZE,
+    #     pretrained=cfg.TRAIN.PRETRAINED_REGRESSOR,
+    #     add_linear=cfg.MODEL.TGRU.ADD_LINEAR,
+    #     bidirectional=cfg.MODEL.TGRU.BIDIRECTIONAL,
+    #     use_residual=cfg.MODEL.TGRU.RESIDUAL,
+    # )#.to(cfg.DEVICE)
+    # generator.cuda()
+    generator = Det_VIBE(cfg)
+
 
     if cfg.TRAIN.PRETRAINED != '' and os.path.isfile(cfg.TRAIN.PRETRAINED):
         checkpoint = torch.load(cfg.TRAIN.PRETRAINED)
@@ -106,7 +112,9 @@ def main(cfg):
         attention_size=None if cfg.TRAIN.MOT_DISCR.FEATURE_POOL !='attention' else cfg.TRAIN.MOT_DISCR.ATT.SIZE,
         attention_layers=None if cfg.TRAIN.MOT_DISCR.FEATURE_POOL !='attention' else cfg.TRAIN.MOT_DISCR.ATT.LAYERS,
         attention_dropout=None if cfg.TRAIN.MOT_DISCR.FEATURE_POOL !='attention' else cfg.TRAIN.MOT_DISCR.ATT.DROPOUT
-    ).to(cfg.DEVICE)
+    )#.to(cfg.DEVICE)
+
+    motion_discriminator.cuda()
 
     dis_motion_optimizer = get_optimizer(
         model=motion_discriminator,
@@ -131,6 +139,8 @@ def main(cfg):
         patience=cfg.TRAIN.LR_PATIENCE,
         verbose=True,
     )
+
+    # lr_scheduler = torch.optim.lr_scheduler.StepLR(gen_optimizer, step_size=5, gamma=0.1)
 
     # ========= Start Training ========= #
     Trainer(
@@ -158,5 +168,4 @@ def main(cfg):
 if __name__ == '__main__':
     cfg, cfg_file = parse_args()
     cfg = prepare_output_dir(cfg, cfg_file)
-
     main(cfg)

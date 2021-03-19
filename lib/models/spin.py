@@ -291,7 +291,8 @@ class Regressor(nn.Module):
             'rotmat' : pred_rotmat
         }]
         return output
-
+        # return torch.cat([pred_cam, pose, pred_shape], dim=1), pred_vertices, pred_keypoints_2d,\
+        #        pred_joints, pred_rotmat
 
 def hmr(smpl_mean_params=SMPL_MEAN_PARAMS, pretrained=True, **kwargs):
     """

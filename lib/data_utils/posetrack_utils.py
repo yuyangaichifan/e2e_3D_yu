@@ -35,6 +35,7 @@ def read_data(folder, set):
         'img_name' : [] ,
         'joints2D': [],
         'bbox': [],
+        'bbox_orig': [],
         'vid_name': [],
         'features': [],
     }
@@ -84,6 +85,7 @@ def read_data(folder, set):
                 continue
 
             bbox = np.zeros((len(annot_pid),4))
+            bbox_orig = np.zeros((len(annot_pid), 4))
             # perm_idxs = get_perm_idxs('posetrack', 'common')
             kp_2d = np.zeros((len(annot_pid), len(annot_pid[0][0])//3 ,3))
             img_paths = np.zeros((len(annot_pid)))
@@ -102,6 +104,7 @@ def read_data(folder, set):
                     if kp_loc[0] == 0 and kp_loc[1] == 0:
                         kp_loc[2] = 0
 
+                bbox_orig_p = np.zeros_like(bbox_p)
 
                 x_tl = bbox_p[0]
                 y_tl = bbox_p[1]
@@ -109,13 +112,34 @@ def read_data(folder, set):
                 h = bbox_p[3]
                 bbox_p[0] = x_tl + w / 2
                 bbox_p[1] = y_tl + h / 2
+                bbox_orig_p[0] = x_tl + w / 2
+                bbox_orig_p[1] = y_tl + h / 2
                 #
 
                 w = h = np.where(w / h > 1, w, h)
                 w = h = h * 0.8
                 bbox_p[2] = w
                 bbox_p[3] = h
+                bbox_orig_p[2] = h*0.5
+                bbox_orig_p[3] = h
+
                 bbox[i, :] = bbox_p
+                bbox_orig[i, :] = bbox_orig_p
+                # if fid == 5:
+                #     tmpimgname = osp.join(folder, frame2imgname[image_id])
+                #     import matplotlib.pyplot as plt
+                #     import matplotlib.patches as patches
+                #     fig, ax = plt.subplots()
+                #     tmpimg = plt.imread(tmpimgname)
+                #     ax.imshow(tmpimg)
+                #     rect = patches.Rectangle((bbox_orig_p[0] - bbox_orig_p[2] / 2, bbox_orig_p[1] - bbox_orig_p[3] / 2),
+                #                              bbox_orig_p[2], bbox_orig_p[3], linewidth=2, edgecolor='r', facecolor='none')
+                #     ax.add_patch(rect)
+                #     rect = patches.Rectangle((bbox_p[0] - bbox_p[2] / 2, bbox_p[1] - bbox_p[3] / 2),
+                #                              bbox_p[2], bbox_p[3], linewidth=2, edgecolor='g', facecolor='none')
+                #     ax.add_patch(rect)
+                #     plt.show()
+                #     print('vis')
 
             img_paths = list(img_paths)
             img_paths = [osp.join(folder, frame2imgname[item]) if item != 0 else 0 for item in img_paths ]
@@ -128,6 +152,7 @@ def read_data(folder, set):
             kp_2d = np.delete(kp_2d, bbx_idxs, 0)
             img_paths = np.delete(np.array(img_paths), bbx_idxs, 0)
             bbox = np.delete(bbox, np.where(~bbox.any(axis=1))[0], axis=0)
+            bbox_orig = np.delete(bbox_orig, np.where(~bbox_orig.any(axis=1))[0], axis=0)
 
             # Convert to common 2d keypoint format
             if bbox.size == 0 or bbox.shape[0] < min_frame_number:
@@ -140,6 +165,7 @@ def read_data(folder, set):
             dataset['img_name'].append(np.array(img_paths))
             dataset['joints2D'].append(kp_2d)
             dataset['bbox'].append(np.array(bbox))
+            dataset['bbox_orig'].append(np.array(bbox_orig))
 
             # compute_features
             features = extract_features(

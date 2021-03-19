@@ -1,10 +1,10 @@
 DEBUG: false
 DEBUG_FREQ: 5
-LOGDIR: ''
+LOGDIR: './writter'
 DEVICE: 'cuda'
 EXP_NAME: 'vibe'
 OUTPUT_DIR: 'results/vibe_tests'
-NUM_WORKERS: 8
+NUM_WORKERS: 0
 SEED_VALUE: -1
 DATASET:
   SEQLEN: 16
@@ -15,24 +15,24 @@ LOSS:
   POSE_W: 60.0
   D_MOTION_LOSS_W: 0.5
 TRAIN:
-  BATCH_SIZE: 32
-  NUM_ITERS_PER_EPOCH: 500
+  BATCH_SIZE: 4
+  NUM_ITERS_PER_EPOCH: 300
   PRETRAINED: ''
   PRETRAINED_REGRESSOR: 'data/vibe_data/spin_model_checkpoint.pth.tar'
   RESUME: ''
   START_EPOCH: 0
-  END_EPOCH: 30
-  LR_PATIENCE: 5
+  END_EPOCH: 100
+  LR_PATIENCE: 10
   DATA_2D_RATIO: 0.6
   DATASETS_2D:
-    - 'Insta'
-#    - 'PoseTrack'
-#    - 'PennAction'
+  #  - 'Insta'
+    - 'PoseTrack'
+    - 'PennAction'
   DATASETS_3D:
-#    - 'ThreeDPW'
+    - 'ThreeDPW'
     - 'MPII3D'
   DATASET_EVAL: 'ThreeDPW'
-  GEN_LR: 0.00005
+  GEN_LR: 0.0001
   GEN_WD: 0.0
   MOT_DISCR:
     OPTIM: 'Adam'
@@ -54,3 +54,11 @@ MODEL:
     RESIDUAL: true
     BIDIRECTIONAL: false
     HIDDEN_SIZE: 1024
+YOLO:
+  MODEL_DEF: 'configs/yolov3.cfg'
+  IMG_SIZE: 416
+  PRETRAINED_MODEL: 'data/vibe_data/yolov3.weights'
+  CLASS_PATH: 'data/vibe_data/coco.names'
+
+TRACKER:
+  TRACKER_BATCH_SIZE: 16

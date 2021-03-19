@@ -50,6 +50,7 @@ class TemporalEncoder(nn.Module):
         self.use_residual = use_residual
 
     def forward(self, x):
+        self.gru.flatten_parameters()
         n,t,f = x.shape
         x = x.permute(1,0,2) # NTF -> TNF
         y, _ = self.gru(x)
@@ -177,3 +178,68 @@ class VIBE_Demo(nn.Module):
             s['rotmat'] = s['rotmat'].reshape(batch_size, seqlen, -1, 3, 3)
 
         return smpl_output
+
+
+class VIBE_w_HMR(nn.Module):
+    def __init__(
+            self,
+            seqlen,
+            batch_size=64,
+            n_layers=1,
+            hidden_size=2048,
+            add_linear=False,
+            bidirectional=False,
+            use_residual=True,
+            pretrained=osp.join(VIBE_DATA_DIR, 'spin_model_checkpoint.pth.tar'),
+    ):
+
+        super(VIBE_w_HMR, self).__init__()
+
+        self.seqlen = seqlen
+        self.batch_size = batch_size
+
+        self.encoder = TemporalEncoder(
+            n_layers=n_layers,
+            hidden_size=hidden_size,
+            bidirectional=bidirectional,
+            add_linear=add_linear,
+            use_residual=use_residual,
+        )
+        self.hmr = hmr()
+        checkpoint = torch.load(pretrained)
+        self.hmr.load_state_dict(checkpoint['model'], strict=False)
+        # regressor can predict cam, pose and shape params in an iterative way
+        self.regressor = Regressor()
+
+        if pretrained and os.path.isfile(pretrained):
+            pretrained_dict = torch.load(pretrained)['model']
+
+            self.regressor.load_state_dict(pretrained_dict, strict=False)
+            print(f'=> loaded pretrained model from \'{pretrained}\'')
+
+
+    def forward(self, input, J_regressor=None):
+        # input size NTF
+        batch_size, seqlen, nc, h, w = input.shape
+
+        feature = self.hmr.feature_extractor(input.reshape(-1, nc, h, w))
+        feature = feature.reshape(batch_size, seqlen, -1)
+        feature = self.encoder(feature)
+        feature = feature.reshape(-1, feature.size(-1))
+
+        smpl_output = self.regressor(feature, J_regressor=J_regressor)
+        for s in smpl_output:
+            s['theta'] = s['theta'].reshape(batch_size, seqlen, -1)
+            s['verts'] = s['verts'].reshape(batch_size, seqlen, -1, 3)
+            s['kp_2d'] = s['kp_2d'].reshape(batch_size, seqlen, -1, 2)
+            s['kp_3d'] = s['kp_3d'].reshape(batch_size, seqlen, -1, 3)
+            s['rotmat'] = s['rotmat'].reshape(batch_size, seqlen, -1, 3, 3)
+
+        return smpl_output
+        # out1, out2, out3, out4, out5 = self.regressor(feature, J_regressor=J_regressor)
+        # out1 = out1.reshape(batch_size, seqlen, -1)
+        # out2 = out2.reshape(batch_size, seqlen, -1, 3)
+        # out3 = out3.reshape(batch_size, seqlen, -1, 2)
+        # out4 = out4.reshape(batch_size, seqlen, -1, 3)
+        # out5 = out5.reshape(batch_size, seqlen, -1, 3, 3)
+        # return out1, out2, out3, out4, out5

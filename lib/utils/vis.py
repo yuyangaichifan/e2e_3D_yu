@@ -22,6 +22,7 @@ import trimesh
 import pyrender
 import numpy as np
 from matplotlib import pyplot as plt
+import random
 
 from lib.data_utils import kp_utils
 from lib.models.smpl import SMPL, SMPL_MODEL_DIR, get_smpl_faces
@@ -359,10 +360,14 @@ def batch_visualize_vid_preds(video, preds, target, max_video=4, vis_hmr=False, 
                 single_pred[k] = v[batch_id, t_id]
 
             for k, v in target.items():
+                v = np.array(v)
                 single_target[k] = v[batch_id, t_id]
 
             img = visualize_preds(image, single_pred, single_target,
                                   vis_hmr=vis_hmr, dataset=dataset)
+
+            import matplotlib.pyplot as plt
+            plt.imsave('/home/yu/tmp/'+str(batch_id)+'_'+str(t_id) + '.png', img)
 
             result_video.append(img[np.newaxis, ...])
 
@@ -483,3 +488,59 @@ def show_video(video, fps=25):
         time.sleep(1./fps)
 
     cv2.destroyAllWindows()
+
+def batch_vis_yolo_raw(img_batch, output, ind):
+    batch_vis = img_batch[ind, :, :, :]
+    batch_vis = batch_vis.squeeze(0)
+    batch_vis = batch_vis.permute(1, 2, 0)
+    batch_vis = batch_vis.cpu().numpy()
+    output_img = output[ind, :, :]
+    output_img = output_img.cpu().numpy()
+    import matplotlib.pyplot as plt
+    plt.imshow(batch_vis)
+    plt.show()
+
+def batch_vis_yolo_res(img_batch, output, class_names):
+    img_batch = img_batch.permute(0, 2, 3, 1)
+    img_batch = img_batch.cpu().numpy()
+    import matplotlib.patches as patches
+    for ii in range(img_batch.shape[0]):
+
+
+        # Create plot
+        img = img_batch[ii, :, :, :]
+        plt.figure()
+        fig, ax = plt.subplots(1)
+        ax.imshow(img)
+        detections = output[ii]
+        # Draw bounding boxes and labels of detections
+        cmap = plt.get_cmap("tab20b")
+        colors = [cmap(i) for i in np.linspace(0, 1, 20)]
+        if detections is not None:
+            detections = detections.cpu().numpy()
+            # Rescale boxes to original image
+            unique_labels = np.unique(detections[:, -1])
+            n_cls_preds = len(unique_labels)
+            bbox_colors = random.sample(colors, n_cls_preds)
+            for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
+                print("\t+ Label: %s, Conf: %.5f" % (class_names[int(cls_pred)], cls_conf.item()))
+
+                box_w = x2 - x1
+                box_h = y2 - y1
+
+                color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
+                # Create a Rectangle patch
+                bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
+                # Add the bbox to the plot
+                ax.add_patch(bbox)
+                # Add label
+                plt.text(
+                    x1,
+                    y1,
+                    s=class_names[int(cls_pred)],
+                    color="white",
+                    verticalalignment="top",
+                    bbox={"color": color, "pad": 0},
+                )
+
+        plt.show()

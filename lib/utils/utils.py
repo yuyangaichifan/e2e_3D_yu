@@ -169,7 +169,8 @@ def prepare_output_dir(cfg, cfg_file):
     # ==== create logdir
     logtime = time.strftime('%d-%m-%Y_%H-%M-%S')
     logdir = f'{logtime}_{cfg.EXP_NAME}'
-
+    # yu logdir
+    logdir = 'yu_dir'
     logdir = osp.join(cfg.OUTPUT_DIR, logdir)
     os.makedirs(logdir, exist_ok=True)
     shutil.copy(src=cfg_file, dst=osp.join(cfg.OUTPUT_DIR, 'config.yaml'))

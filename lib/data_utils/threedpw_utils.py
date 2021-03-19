@@ -49,6 +49,7 @@ def read_data(folder, set, debug=False):
         'shape': [],
         'pose': [],
         'bbox': [],
+        'bbox_orig': [],
         'img_name': [],
         'features': [],
         'valid': [],
@@ -115,9 +116,29 @@ def read_data(folder, set, debug=False):
             c_x = bbox_params[:,0]
             c_y = bbox_params[:,1]
             scale = bbox_params[:,2]
+
+
             w = h = 150. / scale
             w = h = h * 1.1
             bbox = np.vstack([c_x,c_y,w,h]).T
+            bbox_orig = np.vstack([c_x,c_y,h*0.5,h]).T
+
+            # for fr_id, tmpimgname in enumerate(img_paths):
+            #
+            #     import matplotlib.pyplot as plt
+            #     import matplotlib.patches as patches
+            #     fig, ax = plt.subplots()
+            #     tmpimg = plt.imread(tmpimgname)
+            #     ax.imshow(tmpimg)
+            #     rect = patches.Rectangle((bbox_orig[fr_id, 0] - bbox_orig[fr_id, 2] / 2, bbox_orig[fr_id, 1] - bbox_orig[fr_id, 3] / 2),
+            #                              bbox_orig[fr_id, 2], bbox_orig[fr_id, 3], linewidth=2, edgecolor='r', facecolor='none')
+            #     ax.add_patch(rect)
+            #     rect = patches.Rectangle((bbox[fr_id, 0] - bbox[fr_id, 2] / 2, bbox[fr_id, 1] - bbox[fr_id, 3] / 2),
+            #                              bbox[fr_id, 2], bbox[fr_id, 3], linewidth=2, edgecolor='g', facecolor='none')
+            #     ax.add_patch(rect)
+            #     plt.show()
+            #     print('vis')
+
 
             # process keypoints
             j2d[:, :, 2] = j2d[:, :, 2] > 0.3  # set the visibility flags
@@ -139,6 +160,7 @@ def read_data(folder, set, debug=False):
             dataset['shape'].append(shape.numpy()[time_pt1:time_pt2])
             dataset['pose'].append(pose.numpy()[time_pt1:time_pt2])
             dataset['bbox'].append(bbox)
+            dataset['bbox_orig'].append(bbox_orig)
             dataset['valid'].append(campose_valid[time_pt1:time_pt2])
 
             features = extract_features(model, img_paths_array, bbox,
